@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Zookeeper для Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    command: >
+      bash -c "
+        echo 'Запуск Kafka...' &&
+        /etc/confluent/docker/run &
+        sleep 20 &&
+        kafka-topics --create --topic raw_weather_events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --if-not-exists &&
+        echo '✅ Kafka готов. Топик raw_weather_events создан' &&
+        tail -f /dev/null
+      "
+
+  # Airflow с правильным конфигом
+  airflow:
+    image: apache/airflow:2.7.0-python3.10
+    container_name: airflow
+    environment:
+      # ИСПРАВЛЕНИЕ: Используем SequentialExecutor вместо LocalExecutor
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      
+      # Наши переменные
+      WEATHERAPI_KEY: ${WEATHERAPI_KEY}
+      WEATHER_LOCATION: Almaty
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: raw_weather_events
+      PRODUCER_INTERVAL: '30'
+      
+      # Дополнительные настройки для стабильности
+      AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 30
+      AIRFLOW__WEBSERVER__WORKERS: 2
+      AIRFLOW__WEBSERVER__WEB_SERVER_PORT: 8080
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
+      - ./requirements.txt:/opt/airflow/requirements.txt  # ДОБАВЬТЕ ЭТУ СТРОКУ
+      - airflow_db:/opt/airflow
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "
+        echo '🔄 Инициализация Airflow для проекта...' &&
+        # Инициализация базы данных
+        airflow db init &&
+        
+        # Создание администратора (если не существует)
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && 
+        echo '✅ Пользователь admin уже существует' &&
+        
+        echo '📦 Установка зависимостей из requirements.txt...' &&
+        pip install -r /opt/airflow/requirements.txt &&
+        
+        # Запускаем scheduler в фоне
+        echo '🚀 Запуск Airflow Scheduler...' &&
+        airflow scheduler &
+        
+        # Даем scheduler время на запуск
+        sleep 10 &&
+        
+        # Запускаем webserver
+        echo '🌐 Запуск Airflow Webserver...' &&
+        echo '======================================' &&
+        echo '✅ Airflow готов!' &&
+        echo '🌐 Доступ: http://localhost:8080' &&
+        echo '👤 Логин: admin' &&
+        echo '🔑 Пароль: admin' &&
+        echo '======================================' &&
+        exec airflow webserver
+      "
+    depends_on:
+      - kafka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  airflow_db:
