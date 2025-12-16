@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Zookeeper для Kafka
@@ -34,25 +34,27 @@ services:
         tail -f /dev/null
       "
 
-  # Airflow с правильным конфигом
   airflow:
     image: apache/airflow:2.7.0-python3.10
     container_name: airflow
+    env_file:
+      - .env
     environment:
-      # ИСПРАВЛЕНИЕ: Используем SequentialExecutor вместо LocalExecutor
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-      
-      # Наши переменные
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+
       WEATHERAPI_KEY: ${WEATHERAPI_KEY}
       WEATHER_LOCATION: Almaty
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: raw_weather_events
-      PRODUCER_INTERVAL: '30'
-      
-      # Дополнительные настройки для стабильности
+      PRODUCER_INTERVAL: "30"
+
+      KAFKA_CONSUMER_GROUP: weather_batch_processor
+      BATCH_HOURS_BACK: "1"
+      DATA_DIR: /opt/airflow/data
+
       AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 30
       AIRFLOW__WEBSERVER__WORKERS: 2
       AIRFLOW__WEBSERVER__WEB_SERVER_PORT: 8080
@@ -60,7 +62,7 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./data:/opt/airflow/data
-      - ./requirements.txt:/opt/airflow/requirements.txt  # ДОБАВЬТЕ ЭТУ СТРОКУ
+      - ./requirements.txt:/opt/airflow/requirements.txt
       - airflow_db:/opt/airflow
     ports:
       - "8080:8080"
