@@ -71,21 +71,21 @@ services:
         echo '🔄 Инициализация Airflow для проекта...' &&
         # Инициализация базы данных
         airflow db init &&
-        
+
         # Создание администратора (если не существует)
-        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && 
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
         echo '✅ Пользователь admin уже существует' &&
-        
+
         echo '📦 Установка зависимостей из requirements.txt...' &&
         pip install -r /opt/airflow/requirements.txt &&
-        
+
         # Запускаем scheduler в фоне
         echo '🚀 Запуск Airflow Scheduler...' &&
         airflow scheduler &
-        
+
         # Даем scheduler время на запуск
         sleep 10 &&
-        
+
         # Запускаем webserver
         echo '🌐 Запуск Airflow Webserver...' &&
         echo '======================================' &&
