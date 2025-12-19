@@ -8,14 +8,16 @@ sys.path.insert(0, "/opt/airflow/src")
 from job1_producer import run_producer
 
 with DAG(
-    "almaty_weather_ingestion",
-    description="Сбор данных о погоде в Алматы и отправка в Kafka",
-    schedule_interval=None,  # Запускается вручную
+    dag_id="weather_continuous_ingestion",
+    description="Continuous ingestion: Weather API → Kafka (pseudo-streaming)",
+    schedule_interval="@once",  # один запуск → дальше работает постоянно
     start_date=datetime(2025, 12, 1),
     catchup=False,
-    tags=["weather", "kafka", "ingestion"],
+    tags=["weather", "kafka", "streaming"],
+    max_active_runs=1,
 ) as dag:
-    producer_task = PythonOperator(
-        task_id="collect_and_send_weather_data",
+
+    ingest_task = PythonOperator(
+        task_id="run_weather_producer",
         python_callable=run_producer,
     )
