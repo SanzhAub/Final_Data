@@ -43,7 +43,7 @@ docker-compose up --build
 
 3. Open **Airflow UI**: [http://localhost:8080](http://localhost:8080)
 
-   * Default login: `airflow` / `airflow`
+   * Default login: `admin` / `admin`
 
 4. Trigger DAGs:
 
