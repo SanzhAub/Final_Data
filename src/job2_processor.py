@@ -21,10 +21,10 @@ def read_from_kafka(
     try:
         start_time = datetime.utcnow() - timedelta(hours=hours_back)
 
-        print(f"📡 Подключение к Kafka: {kafka_servers}")
-        print(f"📊 Топик: {topic}")
-        print(f"👥 Consumer Group: {consumer_group}")
-        print(f"⏰ Читаем сообщения с {start_time.isoformat()}")
+        print(f"Подключение к Kafka: {kafka_servers}")
+        print(f"Топик: {topic}")
+        print(f"Consumer Group: {consumer_group}")
+        print(f"Читаем сообщения с {start_time.isoformat()}")
 
         consumer = KafkaConsumer(
             topic,
@@ -36,16 +36,16 @@ def read_from_kafka(
             consumer_timeout_ms=30000,
         )
 
-        print("✅ Подключено к Kafka. Читаем сообщения...")
+        print("Подключено к Kafka. Читаем сообщения...")
         partitions = consumer.assignment()
         if partitions:
             for partition in partitions:
                 position = consumer.position(partition)
-                print(f"  📍 Партиция {partition}: текущая позиция offset = {position}")
+                print(f"Партиция {partition}: текущая позиция offset = {position}")
                 if position == 0:
-                    print(f"  🔄 Начинаем чтение с начала партиции {partition}")
+                    print(f"Начинаем чтение с начала партиции {partition}")
         else:
-            print("  ⏳ Ожидание присвоения партиций...")
+            print("Ожидание присвоения партиций...")
             import time
 
             time.sleep(2)
@@ -57,7 +57,7 @@ def read_from_kafka(
         for message in consumer:
             if message_count >= max_messages:
                 print(
-                    f"  ⚠ Достигнут лимит сообщений ({max_messages}), останавливаем чтение"
+                    f"Достигнут лимит сообщений ({max_messages}), останавливаем чтение"
                 )
                 break
 
@@ -69,20 +69,18 @@ def read_from_kafka(
                     data.get("timestamp", "").replace("Z", "+00:00")
                 )
                 messages.append(data)
-                print(f"  ✓ Сообщение #{message_count}: {msg_timestamp.isoformat()}")
+                print(f"Сообщение #{message_count}: {msg_timestamp.isoformat()}")
             except (ValueError, TypeError) as e:
-                print(
-                    f"  ⚠ Неверный формат timestamp в сообщении #{message_count}: {e}"
-                )
+                print(f"Неверный формат timestamp в сообщении #{message_count}: {e}")
                 messages.append(data)
 
         consumer.close()
-        print(f"📨 Прочитано сообщений из Kafka: {len(messages)}")
+        print(f"Прочитано сообщений из Kafka: {len(messages)}")
 
     except KafkaError as e:
-        print(f"❌ Ошибка Kafka: {e}")
+        print(f"Ошибка Kafka: {e}")
     except Exception as e:
-        print(f"❌ Неожиданная ошибка при чтении из Kafka: {e}")
+        print(f"Неожиданная ошибка при чтении из Kafka: {e}")
 
     return messages
 
@@ -91,17 +89,17 @@ def clean_data(raw_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     cleaned_records = []
     skipped_count = 0
 
-    print(f"\n🧹 Очистка и валидация {len(raw_messages)} сообщений...")
+    print(f"\nОчистка и валидация {len(raw_messages)} сообщений...")
 
     for idx, msg in enumerate(raw_messages, 1):
         try:
             if not all(key in msg for key in ["timestamp", "city", "weather"]):
-                print(f"  ⚠ Сообщение #{idx}: отсутствуют обязательные поля")
+                print(f"Сообщение #{idx}: отсутствуют обязательные поля")
                 skipped_count += 1
                 continue
 
             if "current" not in msg["weather"]:
-                print(f"  ⚠ Сообщение #{idx}: отсутствует weather.current")
+                print(f"Сообщение #{idx}: отсутствует weather.current")
                 skipped_count += 1
                 continue
 
@@ -109,12 +107,12 @@ def clean_data(raw_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
             required_fields = ["temp_c", "condition", "humidity"]
             if not all(field in current for field in required_fields):
-                print(f"  ⚠ Сообщение #{idx}: отсутствуют обязательные поля в current")
+                print(f"Сообщение #{idx}: отсутствуют обязательные поля в current")
                 skipped_count += 1
                 continue
 
             if "text" not in current["condition"]:
-                print(f"  ⚠ Сообщение #{idx}: отсутствует condition.text")
+                print(f"Сообщение #{idx}: отсутствует condition.text")
                 skipped_count += 1
                 continue
 
@@ -124,22 +122,22 @@ def clean_data(raw_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 condition_text = str(current["condition"]["text"]).strip()
 
                 if not (-100 <= temp_c <= 100):
-                    print(f"  ⚠ Сообщение #{idx}: неверная температура: {temp_c}")
+                    print(f"Сообщение #{idx}: неверная температура: {temp_c}")
                     skipped_count += 1
                     continue
 
                 if not (0 <= humidity <= 100):
-                    print(f"  ⚠ Сообщение #{idx}: неверная влажность: {humidity}")
+                    print(f"Сообщение #{idx}: неверная влажность: {humidity}")
                     skipped_count += 1
                     continue
 
                 if not condition_text:
-                    print(f"  ⚠ Сообщение #{idx}: пустое условие погоды")
+                    print(f"Сообщение #{idx}: пустое условие погоды")
                     skipped_count += 1
                     continue
 
             except (ValueError, TypeError) as e:
-                print(f"  ⚠ Сообщение #{idx}: ошибка валидации типов: {e}")
+                print(f"Сообщение #{idx}: ошибка валидации типов: {e}")
                 skipped_count += 1
                 continue
 
@@ -184,15 +182,15 @@ def clean_data(raw_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             }
 
             cleaned_records.append(cleaned_record)
-            print(f"  ✓ Сообщение #{idx}: очищено и валидировано")
+            print(f"Сообщение #{idx}: очищено и валидировано")
 
         except Exception as e:
-            print(f"  ❌ Сообщение #{idx}: неожиданная ошибка при очистке: {e}")
+            print(f"Сообщение #{idx}: неожиданная ошибка при очистке: {e}")
             skipped_count += 1
             continue
 
-    print(f"\n✅ Очищено записей: {len(cleaned_records)}")
-    print(f"⊘ Пропущено записей: {skipped_count}")
+    print(f"\nОчищено записей: {len(cleaned_records)}")
+    print(f"Пропущено записей: {skipped_count}")
 
     return cleaned_records
 
@@ -201,10 +199,10 @@ def write_to_sqlite(cleaned_records: List[Dict[str, Any]]) -> Dict[str, int]:
     stats = {"inserted": 0, "duplicates": 0, "errors": 0}
 
     if not cleaned_records:
-        print("📝 Нет записей для записи в базу данных")
+        print("Нет записей для записи в базу данных")
         return stats
 
-    print(f"\n💾 Запись {len(cleaned_records)} записей в SQLite...")
+    print(f"\nЗапись {len(cleaned_records)} записей в SQLite...")
 
     for record in cleaned_records:
         success = insert_weather_record(record)
@@ -213,17 +211,17 @@ def write_to_sqlite(cleaned_records: List[Dict[str, Any]]) -> Dict[str, int]:
         else:
             stats["duplicates"] += 1
 
-    print("\n📊 Статистика записи:")
-    print(f"  ✓ Вставлено: {stats['inserted']}")
-    print(f"  ⊘ Дубликаты: {stats['duplicates']}")
-    print(f"  ❌ Ошибки: {stats['errors']}")
+    print("\nСтатистика записи:")
+    print(f"Вставлено: {stats['inserted']}")
+    print(f"Дубликаты: {stats['duplicates']}")
+    print(f"Ошибки: {stats['errors']}")
 
     return stats
 
 
 def run_batch_processor():
     print("=" * 60)
-    print("🚀 Запуск Hourly Batch Processor")
+    print("Запуск Hourly Batch Processor")
     print("=" * 60)
 
     kafka_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
@@ -231,17 +229,17 @@ def run_batch_processor():
     consumer_group = os.getenv("KAFKA_CONSUMER_GROUP", "weather_batch_processor")
     hours_back = int(os.getenv("BATCH_HOURS_BACK", "1"))
 
-    print("⚙️  Настройки:")
-    print(f"   Kafka: {kafka_servers}")
-    print(f"   Топик: {topic}")
-    print(f"   Consumer Group: {consumer_group}")
-    print(f"   Период: последние {hours_back} час(ов)")
+    print("⚙Настройки:")
+    print(f"Kafka: {kafka_servers}")
+    print(f"Топик: {topic}")
+    print(f"Consumer Group: {consumer_group}")
+    print(f"Период: последние {hours_back} час(ов)")
     print()
 
     try:
         init_database()
     except Exception as e:
-        print(f"❌ Ошибка инициализации базы данных: {e}")
+        print(f"Ошибка инициализации базы данных: {e}")
         return
 
     raw_messages = read_from_kafka(
@@ -252,22 +250,22 @@ def run_batch_processor():
     )
 
     if not raw_messages:
-        print("ℹ️  Нет новых сообщений для обработки")
+        print("Нет новых сообщений для обработки")
         return
 
     cleaned_records = clean_data(raw_messages)
 
     if not cleaned_records:
-        print("ℹ️  Нет валидных записей после очистки")
+        print("Нет валидных записей после очистки")
         return
 
     stats = write_to_sqlite(cleaned_records)
 
     print("\n" + "=" * 60)
-    print("✅ Batch processing завершен!")
-    print(f"📈 Всего обработано: {len(raw_messages)} сообщений")
-    print(f"💾 Записано в БД: {stats['inserted']} записей")
-    print(f"📁 База данных: {get_db_path()}")
+    print("Batch processing завершен!")
+    print(f"Всего обработано: {len(raw_messages)} сообщений")
+    print(f"Записано в БД: {stats['inserted']} записей")
+    print(f"База данных: {get_db_path()}")
     print("=" * 60)
 
 

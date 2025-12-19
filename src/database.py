@@ -47,7 +47,7 @@ def init_database():
 
     conn.commit()
     conn.close()
-    print(f"✅ База данных инициализирована: {get_db_path()}")
+    print(f"База данных инициализирована: {get_db_path()}")
 
 
 def insert_weather_record(record: Dict[str, Any]) -> bool:
@@ -81,7 +81,7 @@ def insert_weather_record(record: Dict[str, Any]) -> bool:
         return False
     except Exception as e:
         conn.rollback()
-        print(f"❌ Ошибка при вставке записи: {e}")
+        print(f"Ошибка при вставке записи: {e}")
         return False
     finally:
         conn.close()
@@ -104,7 +104,7 @@ def get_last_processed_timestamp(city: str = "Almaty") -> Optional[str]:
         result = cursor.fetchone()
         return result["last_timestamp"] if result and result["last_timestamp"] else None
     except Exception as e:
-        print(f"❌ Ошибка при получении последнего timestamp: {e}")
+        print(f"Ошибка при получении последнего timestamp: {e}")
         return None
     finally:
         conn.close()
@@ -119,7 +119,7 @@ def get_record_count() -> int:
         result = cursor.fetchone()
         return result["count"] if result else 0
     except Exception as e:
-        print(f"❌ Ошибка при подсчете записей: {e}")
+        print(f"Ошибка при подсчете записей: {e}")
         return 0
     finally:
         conn.close()

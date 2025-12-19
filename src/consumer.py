@@ -1,7 +1,7 @@
 from kafka import KafkaConsumer
 import json
 
-print("📡 Подключаемся к Kafka...")
+print("Подключаемся к Kafka")
 
 consumer = KafkaConsumer(
     "raw_weather_events",
@@ -11,22 +11,22 @@ consumer = KafkaConsumer(
     consumer_timeout_ms=10000,  # таймаут 10 секунд
 )
 
-print("✅ Подключено! Слушаем сообщения...")
+print("подключено, слушаем сообщения")
 
 count = 0
 try:
     for message in consumer:
         count += 1
         data = message.value
-        print(f"\n📨 Сообщение #{count}:")
-        print(f"   🕒 Время: {data['timestamp']}")
-        print(f"   📍 Город: {data['city']}")
-        print(f"   🌡 Температура: {data['weather']['current']['temp_c']}°C")
-        print(f"   🌤 Состояние: {data['weather']['current']['condition']['text']}")
-        print(f"   💧 Влажность: {data['weather']['current']['humidity']}%")
+        print(f"\nСообщение #{count}:")
+        print(f"Время: {data['timestamp']}")
+        print(f"Город: {data['city']}")
+        print(f"Температура: {data['weather']['current']['temp_c']}°C")
+        print(f"Состояние: {data['weather']['current']['condition']['text']}")
+        print(f"Влажность: {data['weather']['current']['humidity']}%")
 
 except Exception as e:
-    print(f"❌ Ошибка: {e}")
+    print(f"Ошибка: {e}")
 
-print(f"\n🎯 Всего получено сообщений: {count}")
+print(f"\nВсего получено сообщений: {count}")
 consumer.close()
