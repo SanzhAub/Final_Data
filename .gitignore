@@ -77,7 +77,7 @@ dmypy.json
 Thumbs.db
 
 # Database files
-*.db
+#*.db
 *.sqlite3
 
 # Others
