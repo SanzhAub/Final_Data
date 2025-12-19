@@ -5,9 +5,11 @@ from typing import Any, Dict, List
 
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
+import pandas as pd
+import sqlite3
 
 # Импортируем модуль базы данных
-from database import get_db_path, init_database, insert_weather_record
+from database import get_db_path, init_database
 
 
 def read_from_kafka(
@@ -85,138 +87,67 @@ def read_from_kafka(
     return messages
 
 
-def clean_data(raw_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    cleaned_records = []
-    skipped_count = 0
+def clean_data(raw_messages) -> pd.DataFrame:
+    if not raw_messages:
+        return pd.DataFrame()
 
-    print(f"\nОчистка и валидация {len(raw_messages)} сообщений...")
+    df = pd.json_normalize(raw_messages)
 
-    for idx, msg in enumerate(raw_messages, 1):
-        try:
-            if not all(key in msg for key in ["timestamp", "city", "weather"]):
-                print(f"Сообщение #{idx}: отсутствуют обязательные поля")
-                skipped_count += 1
-                continue
+    df = df[
+        [
+            "timestamp",
+            "city",
+            "weather.current.temp_c",
+            "weather.current.condition.text",
+            "weather.current.humidity",
+            "weather.current.wind_kph",
+            "weather.current.pressure_mb",
+            "weather.current.feelslike_c",
+            "metadata.source",
+        ]
+    ]
 
-            if "current" not in msg["weather"]:
-                print(f"Сообщение #{idx}: отсутствует weather.current")
-                skipped_count += 1
-                continue
+    df.columns = [
+        "timestamp",
+        "city",
+        "temperature_c",
+        "condition_text",
+        "humidity",
+        "wind_kph",
+        "pressure_mb",
+        "feelslike_c",
+        "source",
+    ]
 
-            current = msg["weather"]["current"]
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df["temperature_c"] = pd.to_numeric(df["temperature_c"], errors="coerce")
+    df["humidity"] = pd.to_numeric(df["humidity"], errors="coerce")
 
-            required_fields = ["temp_c", "condition", "humidity"]
-            if not all(field in current for field in required_fields):
-                print(f"Сообщение #{idx}: отсутствуют обязательные поля в current")
-                skipped_count += 1
-                continue
+    df = df.dropna(subset=["timestamp", "city", "temperature_c", "humidity"])
 
-            if "text" not in current["condition"]:
-                print(f"Сообщение #{idx}: отсутствует condition.text")
-                skipped_count += 1
-                continue
+    df = df[(df["temperature_c"].between(-100, 100)) & (df["humidity"].between(0, 100))]
 
-            try:
-                temp_c = float(current["temp_c"])
-                humidity = int(current["humidity"])
-                condition_text = str(current["condition"]["text"]).strip()
-
-                if not (-100 <= temp_c <= 100):
-                    print(f"Сообщение #{idx}: неверная температура: {temp_c}")
-                    skipped_count += 1
-                    continue
-
-                if not (0 <= humidity <= 100):
-                    print(f"Сообщение #{idx}: неверная влажность: {humidity}")
-                    skipped_count += 1
-                    continue
-
-                if not condition_text:
-                    print(f"Сообщение #{idx}: пустое условие погоды")
-                    skipped_count += 1
-                    continue
-
-            except (ValueError, TypeError) as e:
-                print(f"Сообщение #{idx}: ошибка валидации типов: {e}")
-                skipped_count += 1
-                continue
-
-            timestamp = msg["timestamp"]
-            try:
-                dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                timestamp = dt.isoformat()
-            except (ValueError, TypeError):
-                pass
-
-            wind_kph = current.get("wind_kph")
-            if wind_kph is not None:
-                try:
-                    wind_kph = float(wind_kph)
-                except (ValueError, TypeError):
-                    wind_kph = None
-
-            pressure_mb = current.get("pressure_mb")
-            if pressure_mb is not None:
-                try:
-                    pressure_mb = float(pressure_mb)
-                except (ValueError, TypeError):
-                    pressure_mb = None
-
-            feelslike_c = current.get("feelslike_c")
-            if feelslike_c is not None:
-                try:
-                    feelslike_c = float(feelslike_c)
-                except (ValueError, TypeError):
-                    feelslike_c = None
-
-            cleaned_record = {
-                "timestamp": timestamp,
-                "city": str(msg["city"]).strip(),
-                "temperature_c": temp_c,
-                "condition_text": condition_text,
-                "humidity": humidity,
-                "wind_kph": wind_kph,
-                "pressure_mb": pressure_mb,
-                "feelslike_c": feelslike_c,
-                "source": msg.get("metadata", {}).get("source", "weatherapi.com"),
-            }
-
-            cleaned_records.append(cleaned_record)
-            print(f"Сообщение #{idx}: очищено и валидировано")
-
-        except Exception as e:
-            print(f"Сообщение #{idx}: неожиданная ошибка при очистке: {e}")
-            skipped_count += 1
-            continue
-
-    print(f"\nОчищено записей: {len(cleaned_records)}")
-    print(f"Пропущено записей: {skipped_count}")
-
-    return cleaned_records
+    return df
 
 
-def write_to_sqlite(cleaned_records: List[Dict[str, Any]]) -> Dict[str, int]:
-    stats = {"inserted": 0, "duplicates": 0, "errors": 0}
+def write_dataframe_to_sqlite(df) -> int:
+    if df.empty:
+        print("нет данных для записи")
+        return 0
 
-    if not cleaned_records:
-        print("Нет записей для записи в базу данных")
-        return stats
+    conn = sqlite3.connect(get_db_path())
 
-    print(f"\nЗапись {len(cleaned_records)} записей в SQLite...")
+    df.to_sql(
+        "cleaned_weather_data",
+        conn,
+        if_exists="append",
+        index=False,
+    )
 
-    for record in cleaned_records:
-        success = insert_weather_record(record)
-        if success:
-            stats["inserted"] += 1
-        else:
-            stats["duplicates"] += 1
+    conn.close()
 
-    print("\nСтатистика записи:")
-    print(f"Вставлено: {stats['inserted']}")
-    print(f"Дубликаты: {stats['duplicates']}")
-    print(f"Ошибки: {stats['errors']}")
-
-    return stats
+    print(f"Записано строк в БД: {len(df)}")
+    return len(df)
 
 
 def run_batch_processor():
@@ -253,18 +184,18 @@ def run_batch_processor():
         print("Нет новых сообщений для обработки")
         return
 
-    cleaned_records = clean_data(raw_messages)
+    df = clean_data(raw_messages)
 
-    if not cleaned_records:
+    if df.empty:
         print("Нет валидных записей после очистки")
         return
 
-    stats = write_to_sqlite(cleaned_records)
+    inserted = write_dataframe_to_sqlite(df)
 
     print("\n" + "=" * 60)
     print("Batch processing завершен!")
     print(f"Всего обработано: {len(raw_messages)} сообщений")
-    print(f"Записано в БД: {stats['inserted']} записей")
+    print(f"Записано в БД: {inserted} записей")
     print(f"База данных: {get_db_path()}")
     print("=" * 60)
 

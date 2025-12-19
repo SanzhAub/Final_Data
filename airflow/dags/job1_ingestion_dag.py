@@ -15,7 +15,6 @@ with DAG(
     tags=["weather", "kafka", "streaming"],
     max_active_runs=1,
 ) as dag:
-
     ingest_task = PythonOperator(
         task_id="run_weather_producer",
         python_callable=run_producer,
