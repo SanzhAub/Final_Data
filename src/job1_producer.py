@@ -42,9 +42,7 @@ def run_producer():
                 "timestamp": datetime.utcnow().isoformat(),
                 "city": location,
                 "weather": weather_data,
-                "metadata": {
-                    "source": "weatherapi.com"
-                },
+                "metadata": {"source": "weatherapi.com"},
             }
 
             producer.send(topic, message)
