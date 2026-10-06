@@ -26,6 +26,31 @@ The pipeline fetches real-time weather data from **WeatherAPI**, cleans and stor
 
 ---
 
+## Data Pipeline Architecture
+
+```text
+  [ WeatherAPI ] 
+        │
+        │ (HTTP Requests)
+        ▼
+  [ DAG 1: Data Ingestion ] ──► [ Apache Kafka ] (topic: raw_weather_events)
+                                       │
+                                       │ (Consume Events)
+                                       ▼
+                             [ DAG 2: Batch Processing ]
+                                       │ (Clean & Validate via Pandas)
+                                       ▼
+                             [( SQLite: events table )]
+                                       │
+                                       │ (Query & Aggregate)
+                                       ▼
+                             [ DAG 3: Daily Analytics ]
+                                       │ (Calculate Min/Max/Avg)
+                                       ▼
+                     [( SQLite: daily_weather_summary )]
+
+```
+
 ## Setup with Docker
 
 1. Clone the repository:
